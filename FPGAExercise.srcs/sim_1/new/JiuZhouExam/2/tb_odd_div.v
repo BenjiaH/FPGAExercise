@@ -1,0 +1,1 @@
+E:/Users/benji/OneDrive/FPGA_Project/FPGAExercise/FPGAExercise.srcs/sim_1/new/02VerilogAdvanced/VL42/tb_odd_div.v

@@ -64,7 +64,6 @@ module sfifo#(
     output  wire    [WIDTH-1:0] rdata
 );
 
-
 localparam  FIFO_ADDR_WIDTH = $clog2(DEPTH);
 
 wire    [0 : 0]                     MSBExtendRAddr;
@@ -75,8 +74,8 @@ reg     [FIFO_ADDR_WIDTH : 0]       extendWAddr;
 reg     [FIFO_ADDR_WIDTH : 0]       extendRAddr;
 
 // Ref: Clifford E. Cummings 
-assign MSBExtendWAddr = extendWAddr[FIFO_ADDR_WIDTH : FIFO_ADDR_WIDTH];
-assign MSBExtendRAddr = extendRAddr[FIFO_ADDR_WIDTH : FIFO_ADDR_WIDTH];
+assign MSBExtendWAddr = extendWAddr[FIFO_ADDR_WIDTH];
+assign MSBExtendRAddr = extendRAddr[FIFO_ADDR_WIDTH];
 assign wAddr = extendWAddr[FIFO_ADDR_WIDTH - 1: 0];
 assign rAddr = extendRAddr[FIFO_ADDR_WIDTH - 1: 0];
 
@@ -106,16 +105,18 @@ always@(posedge clk or negedge rst_n)
             wfull <= 1'b0;
             rempty <= 1'b0;
         end
-    // Write full gen
-    else if((wAddr == rAddr) && (MSBExtendWAddr != MSBExtendRAddr))
-        wfull <= 1'b1;
-    // Read empty gen
-    else if((wAddr == rAddr) && (MSBExtendWAddr == MSBExtendRAddr))
-        rempty <= 1'b1;
+    // // Write full gen
+    // else if((wAddr == rAddr) && (MSBExtendWAddr != MSBExtendRAddr))
+    //     wfull <= 1'b1;
+    // // Read empty gen
+    // else if((wAddr == rAddr) && (MSBExtendWAddr == MSBExtendRAddr))
+    //     rempty <= 1'b1;
     else
         begin
-            wfull <= 1'b0;
-            rempty <= 1'b0;
+            // wfull <= ((wAddr == rAddr) && (MSBExtendWAddr != MSBExtendRAddr));
+            // rempty <= ((wAddr == rAddr) && (MSBExtendWAddr == MSBExtendRAddr));
+            wfull <= (extendRAddr == {~MSBExtendWAddr, wAddr});
+            rempty <= (extendRAddr == extendWAddr);
         end
 
 dual_port_RAM #(
@@ -123,11 +124,11 @@ dual_port_RAM #(
     .WIDTH(WIDTH)
 )dual_port_RAM_inst(
     .wclk   (clk),
-    .wenc   (winc),
+    .wenc   (winc && ~wfull),
     .waddr  (wAddr),
     .wdata  (wdata),
     .rclk   (clk),
-    .renc   (rinc),
+    .renc   (rinc && ~rempty),
     .raddr  (rAddr),
     .rdata  (rdata)
 );

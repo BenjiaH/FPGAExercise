@@ -65,25 +65,117 @@ module asyn_fifo#(
     );
 
 
-parameter   FIFO_ADDR_WIDTH = $clog2(DEPTH);
+localparam  FIFO_ADDR_WIDTH = $clog2(DEPTH);
 
-reg     [FIFO_ADDR_WIDTH - 1 : 0]   wAddr;
-reg     [FIFO_ADDR_WIDTH - 1 : 0]   rAddr;
+wire    [0 : 0]                     MSBExtendWAddr;
+wire    [0 : 0]                     MSBExtendRAddr;
+
+wire    [FIFO_ADDR_WIDTH - 1 : 0]   wAddr;
+wire    [FIFO_ADDR_WIDTH - 1 : 0]   rAddr;
+
+reg     [FIFO_ADDR_WIDTH : 0]       extendWAddr;
+reg     [FIFO_ADDR_WIDTH : 0]       extendRAddr;
+
+wire    [FIFO_ADDR_WIDTH : 0]       extendGrayWAddr;
+wire    [FIFO_ADDR_WIDTH : 0]       extendGrayRAddr;
+
+
+// Ref: Clifford E. Cummings 
+assign MSBExtendWAddr = extendWAddr[FIFO_ADDR_WIDTH : FIFO_ADDR_WIDTH];
+assign MSBExtendRAddr = extendRAddr[FIFO_ADDR_WIDTH : FIFO_ADDR_WIDTH];
+assign wAddr = extendWAddr[FIFO_ADDR_WIDTH - 1: 0];
+assign rAddr = extendRAddr[FIFO_ADDR_WIDTH - 1: 0];
+
+// Bin to Gray
+assign extendGrayWAddr = extendWAddr ^ (extendWAddr >> 1);
+assign extendGrayRAddr = extendRAddr ^ (extendRAddr >> 1);
 
 always@(posedge wclk or negedge wrstn)
     if(!wrstn)
-        wAddr <= 0;
-    else if(wfull)
-        wAddr <=0;
+        extendWAddr <= 0;
+    // else if(wfull)
+    //     extendWAddr <=0;
     else if(winc && !wfull)
-        wAddr <= wAddr + 1'd1;
+        extendWAddr <= extendWAddr + 1'd1;
+    else
+        extendWAddr <= extendWAddr;
 
 always@(posedge rclk or negedge rrstn)
     if(!rrstn)
-        rAddr <= 0;
-    else if(rempty)
-        rAddr <=0;
+        extendRAddr <= 0;
+    // else if(rempty)
+    //     extendRAddr <=0;
     else if(rinc && !rempty)
-        rAddr <= rAddr + 1'd1;
+        extendRAddr <= extendRAddr + 1'd1;
+    else
+        extendRAddr <= extendRAddr;
+
+// Tap as intrducing the the combination logic
+reg     [FIFO_ADDR_WIDTH : 0]       extendGrayWAddrReg;
+reg     [FIFO_ADDR_WIDTH : 0]       extendGrayRAddrReg;
+
+always@(posedge wclk or negedge wrstn)
+    if(!wrstn)
+        extendGrayWAddrReg <= 'd0;
+    else
+        extendGrayWAddrReg <= extendGrayWAddr;
+
+always@(posedge rclk or negedge rrstn)
+    if(!rrstn)
+        extendGrayRAddrReg <= 'd0;
+    else
+        extendGrayRAddrReg <= extendGrayRAddr;
+
+reg     [FIFO_ADDR_WIDTH : 0]       extendGrayW2RAddrReg1;
+reg     [FIFO_ADDR_WIDTH : 0]       extendGrayR2WAddrReg1;
+
+reg     [FIFO_ADDR_WIDTH : 0]       extendGrayW2RAddrReg2;
+reg     [FIFO_ADDR_WIDTH : 0]       extendGrayR2WAddrReg2;
+
+
+always@(posedge rclk or negedge rrstn)
+    if(!rrstn) begin
+        extendGrayW2RAddrReg1 <= 'd0;
+        extendGrayW2RAddrReg2 <= 'd0;
+    end
+    else begin
+        extendGrayW2RAddrReg1 <= extendGrayWAddrReg;
+        extendGrayW2RAddrReg2 <= extendGrayW2RAddrReg1;
+    end
+
+always@(posedge wclk or negedge wrstn)
+    if(!wrstn) begin
+        extendGrayR2WAddrReg1 <= 'd0;
+        extendGrayR2WAddrReg2 <= 'd0;
+    end
+    else begin
+        extendGrayR2WAddrReg1 <= extendGrayRAddrReg;
+        extendGrayR2WAddrReg2 <= extendGrayR2WAddrReg1;
+    end
+// Finished to tap
+
+// wfull and rempty
+wire    MSBExtendGrayR2WAddrReg2;
+wire    MSBExtendGrayW2RAddrReg2;
+
+assign MSBExtendGrayR2WAddrReg2 = extendGrayR2WAddrReg2[FIFO_ADDR_WIDTH : FIFO_ADDR_WIDTH - 1];
+assign MSBExtendGrayW2RAddrReg2 = extendGrayW2RAddrReg2[FIFO_ADDR_WIDTH : FIFO_ADDR_WIDTH - 1];
+
+assign wfull    = (extendGrayWAddr == {~MSBExtendGrayR2WAddrReg2, extendGrayR2WAddrReg2[FIFO_ADDR_WIDTH - 2 : 0]});
+assign rempty   = (extendGrayRAddr == extendGrayR2WAddrReg2);
+
+dual_port_RAM #(
+    .DEPTH(DEPTH),
+    .WIDTH(WIDTH)
+)dual_port_RAM_inst(
+    .wclk   (clk),
+    .wenc   (winc && ~wfull),
+    .waddr  (wAddr),
+    .wdata  (wdata),
+    .rclk   (clk),
+    .renc   (rinc && ~rempty),
+    .raddr  (rAddr),
+    .rdata  (rdata)
+);
 
 endmodule
