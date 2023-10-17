@@ -52,36 +52,59 @@ always @(posedge tb_wclk or negedge tb_wrstn)
 
 initial begin
     tb_wclk <= 1'b1;
-    tb_rclk <= 1'b1;
     tb_wrstn <= 1'b0;
-    tb_rrstn <= 1'b0;
     tb_winc <= 1'b0;
-    tb_rinc <= 1'b0;
-    #(PERIOD * 2)
-    tb_rst_n <= 1'b1;
-    #(PERIOD * 0)
+
+    #(W_PERIOD * 2)
+    tb_wrstn <= 1'b1;
+    #(W_PERIOD * 0)
 
     tb_winc <=1'b1;
-    #(PERIOD * 20)
-    tb_rinc <= 1'b1;
-    #(PERIOD * 6)
+    #(W_PERIOD * 20)
+
+    #(W_PERIOD * 6)
     tb_winc <= 1'b0;
-    #(PERIOD * 3)
-    tb_rinc <= 1'b0;
-    #(PERIOD * 2)
+    #(W_PERIOD * 3)
+
+    #(W_PERIOD * 2)
     tb_winc = 1'b1;
-    #(PERIOD * 8)
+    #(W_PERIOD * 8)
     tb_winc = 1'b0;
-    #(PERIOD * 8)
+    // #(W_PERIOD * 8)
+
+end
+
+initial begin
+    tb_rclk <= 1'b1;
+    tb_rrstn <= 1'b0;
+    tb_rinc <= 1'b0;
+
+    #(R_PERIOD * 2)
+    tb_rrstn <= 1'b1;
+    #(R_PERIOD * 0)
+
+    #(R_PERIOD * 20)
+    tb_rinc <= 1'b1;
+    #(R_PERIOD * 6)
+    
+    #(R_PERIOD * 3)
+    tb_rinc <= 1'b0;
+    #(R_PERIOD * 2)
+   
+    #(R_PERIOD * 8)
+    
+    #(R_PERIOD * 8)
     tb_rinc = 1'b1;
 end
 
-sfifo #(
+asyn_fifo #(
     .WIDTH (WIDTH),
     .DEPTH (DEPTH)
-)sfifo_inst(
-    .clk    (tb_clk   ), 
-    .rst_n  (tb_rst_n ),
+)asyn_fifo_inst(
+    .wclk   (tb_wclk  ),
+    .rclk   (tb_rclk  ),
+    .wrstn  (tb_wrstn ),
+    .rrstn  (tb_rrstn ),
     .winc   (tb_winc  ),
     .rinc   (tb_rinc  ),
     .wdata  (tb_wdata ),
